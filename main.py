@@ -10,12 +10,41 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email import encoders
 
-# تابع ارسال ایمیل
+# تابع ارسال ایمیل با تقسیم تصاویر
 def send_email(subject, body, images):
     sender_email = os.getenv("SENDER_EMAIL")  # ایمیل فرستنده از متغیر محیطی
     receiver_email = os.getenv("RECEIVER_EMAIL")  # ایمیل گیرنده از متغیر محیطی
     password = os.getenv("EMAIL_PASSWORD")  # رمز عبور ایمیل از متغیر محیطی
 
+    # تعیین حداکثر حجم مجاز برای هر ایمیل (20 مگابایت)
+    max_email_size = 20 * 1024 * 1024  # 20 مگابایت
+
+    # تقسیم تصاویر به گروه‌هایی با حجم کم‌تر از 20 مگابایت
+    email_images = []
+    current_email_size = 0
+    current_images = []
+
+    for image in images:
+        image_size = os.path.getsize(image)
+        
+        # اگر اضافه کردن تصویر به گروه فعلی باعث افزایش حجم بیشتر از حد مجاز می‌شود
+        if current_email_size + image_size > max_email_size:
+            # ارسال ایمیل قبلی با تصاویر جمع‌آوری‌شده
+            send_single_email(subject, body, current_images, sender_email, receiver_email, password)
+            # بازنشانی گروه و شروع ارسال ایمیل جدید
+            current_images = [image]
+            current_email_size = image_size
+        else:
+            # افزودن تصویر به گروه فعلی
+            current_images.append(image)
+            current_email_size += image_size
+
+    # ارسال ایمیل نهایی با باقی‌مانده تصاویر
+    if current_images:
+        send_single_email(subject, body, current_images, sender_email, receiver_email, password)
+
+# تابع ارسال یک ایمیل واحد
+def send_single_email(subject, body, images, sender_email, receiver_email, password):
     message = MIMEMultipart()
     message["From"] = sender_email
     message["To"] = receiver_email
